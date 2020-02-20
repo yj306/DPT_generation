@@ -30,12 +30,11 @@ Uint16 EPwm2_DB_Direction;
 Uint16 EPwm3_DB_Direction;
 
 Uint16 DPT_count = 0;
-Uint16 DPT_maximum = 10;   // maximum pulse we may have
+Uint16 DPT_maximum = 5;   // maximum pulse we may have
 Uint16 sw_per;    // period = sw_per/TBCLK(200MHz) = 10 us
 Uint16 Tn1;        // 1st pulse comparator = Tn1/TBCLK = 4us
 Uint16 Tn2;        // 2nd pulse comparator = Tn2/TBCLK = 1us
 Uint32 INT_Count;
-
 //
 // Function Prototypes
 //
@@ -50,10 +49,7 @@ __interrupt void epwm1_isr(void);
 //
 void main(void)
 {
-//
-// Step 1. Initialize System Control:
-// PLL, WatchDog, enable Peripheral Clocks
-// This example function is found in the F2837xD_SysCtrl.c file.
+
 //
     InitSysCtrl();
 
@@ -101,17 +97,8 @@ void main(void)
 //
     IER = 0x0000;
     IFR = 0x0000;
-
-//
-// Initialize the PIE vector table with pointers to the shell Interrupt
-// Service Routines (ISR).
-// This will populate the entire table, even if the interrupt
-// is not used in this example.  This is useful for debug purposes.
-// The shell ISR routines are found in F2837xD_DefaultIsr.c.
-// This function is found in F2837xD_PieVect.c.
 //
     InitPieVectTable();
-
 //
 // Interrupts that are used in this example are re-mapped to
 // ISR functions found within this file.
@@ -175,12 +162,12 @@ void main(void)
 //
 __interrupt void epwm1_isr(void)
 {
-    sw_per = 500;    // period = sw_per/TBCLK(100MHz) = 10 us
-    Tn1 = 250;        // 1st pulse comparator = Tn1/TBCLK = 1.5us
-    Tn2 = 100;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us
+    sw_per = 1000;    // period = sw_per/TBCLK(100MHz) = 10 us
+    Tn1 = 125;        // 1st pulse comparator = Tn1/TBCLK = 1.5us (125/1000*10us = 1.25us)
+    Tn2 = 50;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us  (100/1000*10us = 1 us)
     INT_Count++;
 
-    if(INT_Count > 200000)
+    if(INT_Count > 200000)  // switching frequency = 200*1000
     {
 
         INT_Count = 0;
@@ -194,11 +181,11 @@ __interrupt void epwm1_isr(void)
         // set EPWM1A reg for lower switch
         EPwm4Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPA = Tn1
         EPwm4Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPA
-        EPwm4Regs.AQCTLB.bit.ZRO = AQ_SET;            // force high when TBCTR = 0
+        EPwm4Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
 
         EPwm1Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPA = Tn1
         EPwm1Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPA
-        EPwm1Regs.AQCTLB.bit.ZRO = AQ_SET;            // force high when TBCTR = 0
+        EPwm1Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
 
         EPwm4Regs.CMPA.bit.CMPA = 0;                    // Set CMPB = 0
         EPwm4Regs.AQCTLA.bit.CAU = AQ_CLEAR;            // force low when TBCTR = CMPB
@@ -248,7 +235,7 @@ __interrupt void epwm1_isr(void)
 //
 void InitEPwm1Example()
 {
-    EPwm1Regs.TBPRD = 500;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
+    EPwm1Regs.TBPRD = 1000;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
     EPwm1Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
     EPwm1Regs.TBCTR = 0x0000;                     // Clear counter
 
@@ -302,7 +289,7 @@ void InitEPwm1Example()
 
 void InitEPwm4Example()
 {
-    EPwm4Regs.TBPRD = 500;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
+    EPwm4Regs.TBPRD = 1000;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
     EPwm4Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
     EPwm4Regs.TBCTR = 0x0000;                     // Clear counter
 
