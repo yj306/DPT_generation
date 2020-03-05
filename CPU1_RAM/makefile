@@ -137,6 +137,12 @@ DPT_generation.out \
 EXE_OUTPUTS__QUOTED += \
 "DPT_generation.out" \
 
+BIN_OUTPUTS += \
+DPT_generation.hex \
+
+BIN_OUTPUTS__QUOTED += \
+"DPT_generation.hex" \
+
 
 # All Target
 all: DPT_generation.out
@@ -145,13 +151,20 @@ all: DPT_generation.out
 DPT_generation.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@echo 'Building target: "$@"'
 	@echo 'Invoking: C2000 Linker'
-	"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/bin/cl2000" -v28 -ml -mt --vcu_support=vcu2 --tmu_support=tmu0 --cla_support=cla1 --float_support=fpu32 --advice:performance=all -g --define=_FLASH --define=_LAUNCHXL_F28379D --define=CPU1 --display_error_number --diag_suppress=10063 --diag_warning=225 -z -m"DPT_generation.map" --stack_size=0x100 --warn_sections -i"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/lib" -i"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/include" -i"C:/ti/C2000Ware_2_01_00_00_Software/device_support/f2837xd/common/cmd" -i"C:/ti/C2000Ware_2_01_00_00_Software/device_support/f2837xd/headers/cmd" --reread_libs --display_error_number --xml_link_info="DPT_generation_linkInfo.xml" --entry_point=code_start --rom_model -o "DPT_generation.out" $(ORDERED_OBJS)
+	"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/bin/cl2000" -v28 -ml -mt --cla_support=cla1 --float_support=fpu32 --tmu_support=tmu0 --vcu_support=vcu2 --advice:performance=all --define=_FLASH --define=_LAUNCHXL_F28379D --define=CPU1 -g --diag_suppress=10063 --diag_warning=225 --display_error_number --abi=coffabi -z -m"DPT_generation.map" --stack_size=0x100 --warn_sections -i"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/lib" -i"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/include" -i"C:/ti/C2000Ware_2_01_00_00_Software/device_support/f2837xd/common/cmd" -i"C:/ti/C2000Ware_2_01_00_00_Software/device_support/f2837xd/headers/cmd" --reread_libs --display_error_number --xml_link_info="DPT_generation_linkInfo.xml" --entry_point=code_start --rom_model -o "DPT_generation.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: "$@"'
+	@echo ' '
+
+DPT_generation.hex: $(EXE_OUTPUTS)
+	@echo 'Building files: $(strip $(EXE_OUTPUTS__QUOTED))'
+	@echo 'Invoking: C2000 Hex Utility'
+	"C:/ti/ccs920/ccs/tools/compiler/ti-cgt-c2000_18.12.3.LTS/bin/hex2000"  -o "DPT_generation.hex" $(EXE_OUTPUTS__QUOTED)
+	@echo 'Finished building: $(strip $(EXE_OUTPUTS__QUOTED))'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(EXE_OUTPUTS__QUOTED)
+	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
 	-$(RM) "DPT_generation.obj" "F2837xD_CodeStartBranch.obj" "F2837xD_DefaultISR.obj" "F2837xD_EPwm.obj" "F2837xD_GlobalVariableDefs.obj" "F2837xD_Gpio.obj" "F2837xD_Ipc.obj" "F2837xD_PieCtrl.obj" "F2837xD_PieVect.obj" "F2837xD_SysCtrl.obj" "F2837xD_usDelay.obj" 
 	-$(RM) "DPT_generation.d" "F2837xD_DefaultISR.d" "F2837xD_EPwm.d" "F2837xD_GlobalVariableDefs.d" "F2837xD_Gpio.d" "F2837xD_Ipc.d" "F2837xD_PieCtrl.d" "F2837xD_PieVect.d" "F2837xD_SysCtrl.d" 
 	-$(RM) "F2837xD_CodeStartBranch.d" "F2837xD_usDelay.d" 

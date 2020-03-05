@@ -1,7 +1,7 @@
 //###########################################################################
 // Multi pulse test firmware
 // Yunlei Jiang
-//
+// The purpose is to enable PWM4 and disable PWM5
 //
 // Included Files
 //
@@ -30,8 +30,8 @@ Uint16 EPwm2_DB_Direction;
 Uint16 EPwm3_DB_Direction;
 
 Uint16 DPT_count = 0;
-Uint16 DPT_maximum = 5;   // maximum pulse we may have
-Uint16 sw_per;    // period = sw_per/TBCLK(200MHz) = 10 us
+Uint16 DPT_maximum = 2;   // maximum pulse we may have
+Uint16 sw_per = 400;    // period = sw_per/TBCLK(200MHz) = 10 us
 Uint16 Tn1;        // 1st pulse comparator = Tn1/TBCLK = 4us
 Uint16 Tn2;        // 2nd pulse comparator = Tn2/TBCLK = 1us
 Uint32 INT_Count;
@@ -40,6 +40,8 @@ Uint32 INT_Count;
 //
 void InitEPwm1Example(void);
 void InitEPwm4Example(void);
+void InitEPwm5Example(void);
+
 
 __interrupt void epwm1_isr(void);
 
@@ -51,12 +53,9 @@ void main(void)
 {
 
 //
+
     InitSysCtrl();
 
-//
-// Step 2. Initialize GPIO:
-// This example function is found in the F2837xD_Gpio.c file and
-// illustrates how to set the GPIO to its default state.
 //
 //    InitGpio();
 
@@ -117,8 +116,19 @@ void main(void)
 
     InitEPwm1Example();
     InitEPwm4Example();
+    InitEPwm5Example();
+
 
     EALLOW;
+    // setup GPIO 52
+    GpioCtrlRegs.GPBPUD.bit.GPIO52 = 0;   // Enable pullup on GPIO52
+    GpioDataRegs.GPBSET.bit.GPIO52 = 1;   // Load output latch
+    GpioCtrlRegs.GPBMUX2.bit.GPIO52 = 0;  // GPIO52 = GPIO52
+    GpioCtrlRegs.GPBDIR.bit.GPIO52 = 1;   // GPIO52 = output
+    EDIS;
+
+    EALLOW;
+
     CpuSysRegs.PCLKCR0.bit.TBCLKSYNC =1;
     EDIS;
 
@@ -162,39 +172,36 @@ void main(void)
 //
 __interrupt void epwm1_isr(void)
 {
-    sw_per = 1000;    // period = sw_per/TBCLK(100MHz) = 10 us
-    Tn1 = 125;        // 1st pulse comparator = Tn1/TBCLK = 1.5us (125/1000*10us = 1.25us)
-    Tn2 = 50;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us  (100/1000*10us = 1 us)
+    Tn1 = 200;        // 1st pulse comparator = Tn1/TBCLK = 1.5us (125/1000*10us = 1.25us)
+    Tn2 = 200;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us  (100/1000*10us = 1 us)
     INT_Count++;
 
-    if(INT_Count > 200000)  // switching frequency = 200*1000
+    if(INT_Count > 100000)  // switching frequency = 100k Hz
     {
 
         INT_Count = 0;
         DPT_count = 1;
     }
 
+
+    // set and clear SD signal
+    if(INT_Count > 5000 && INT_Count <5500)
+        GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1;   // Load output latch
+    else
+        GpioDataRegs.GPBSET.bit.GPIO52 = 1;
+
+
     if(DPT_count == 1)
     {
-        EPwm4Regs.TBPRD = sw_per;    // set TBPRD for EPWM1
-        EPwm1Regs.TBPRD = sw_per;    // set TBPRD for EPWM1
         // set EPWM1A reg for lower switch
-        EPwm4Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPA = Tn1
-        EPwm4Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPA
+        EPwm4Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPB = Tn1
+        EPwm4Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPB
         EPwm4Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
 
         EPwm1Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPA = Tn1
         EPwm1Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPA
         EPwm1Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
 
-        EPwm4Regs.CMPA.bit.CMPA = 0;                    // Set CMPB = 0
-        EPwm4Regs.AQCTLA.bit.CAU = AQ_CLEAR;            // force low when TBCTR = CMPB
-        EPwm4Regs.AQCTLA.bit.ZRO = AQ_CLEAR;              // force low when TBCTR = 0
-
-
-        EPwm1Regs.CMPA.bit.CMPA = 0;                    // Set CMPB = 0
-        EPwm1Regs.AQCTLA.bit.CAU = AQ_CLEAR;            // force low when TBCTR = CMPB
-        EPwm1Regs.AQCTLA.bit.ZRO = AQ_CLEAR;              // force low when TBCTR = 0
 
         DPT_count ++;                                   // for 2nd pulse
     }
@@ -210,10 +217,8 @@ __interrupt void epwm1_isr(void)
         else
         {
             EPwm4Regs.CMPB.bit.CMPB = 0;                // terminate all the pulses
-            EPwm4Regs.AQCTLA.bit.ZRO = AQ_CLEAR;        // force low when TBCTR = 0
 
             EPwm1Regs.CMPB.bit.CMPB = 0;                // terminate all the pulses
-            EPwm1Regs.AQCTLA.bit.ZRO = AQ_CLEAR;        // force low when TBCTR = 0
         }
 
     }
@@ -235,7 +240,7 @@ __interrupt void epwm1_isr(void)
 //
 void InitEPwm1Example()
 {
-    EPwm1Regs.TBPRD = 1000;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
+    EPwm1Regs.TBPRD = sw_per;                       // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
     EPwm1Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
     EPwm1Regs.TBCTR = 0x0000;                     // Clear counter
 
@@ -257,26 +262,8 @@ void InitEPwm1Example()
     //
     // Setup compare
     //
-    EPwm1Regs.CMPA.bit.CMPA = 100;
+    EPwm1Regs.CMPA.bit.CMPA = 0;
 
-    //
-    // Set actions
-    //
-    //EPwm1Regs.AQCTLA.bit.CAU = AQ_CLEAR;            // force low when TBCTR = CMPA
-    //EPwm1Regs.AQCTLA.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
-
-    //EPwm1Regs.AQCTLB.bit.CBU = AQ_CLEAR;          // Set PWM1A on Zero
-    //EPwm1Regs.AQCTLB.bit.ZRO = AQ_CLEAR;
-
-    //
-    // Active Low PWMs - Setup Deadband
-    //
-   // EPwm1Regs.DBCTL.bit.OUT_MODE = DB_FULL_ENABLE;
-  //  EPwm1Regs.DBCTL.bit.POLSEL = DB_ACTV_LO;
-   // EPwm1Regs.DBCTL.bit.IN_MODE = DBA_ALL;
-   // EPwm1Regs.DBRED.bit.DBRED = EPWM1_MIN_DB;
-   // EPwm1Regs.DBFED.bit.DBFED = EPWM1_MIN_DB;
-   // EPwm1_DB_Direction = DB_UP;
 
     //
     // Setup interrupt
@@ -289,10 +276,10 @@ void InitEPwm1Example()
 
 void InitEPwm4Example()
 {
-    EPwm4Regs.TBPRD = 1000;                       // Set timer period, PWM frequency = 200kHz Tsw = 5us  PWM_CLK = 100Mhz
+    EPwm4Regs.TZCTL.bit.TZA = TZ_FORCE_LO;
+    EPwm4Regs.TBPRD = sw_per;                       // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
     EPwm4Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
     EPwm4Regs.TBCTR = 0x0000;                     // Clear counter
-
     //
     // Setup counter mode
     //
@@ -313,8 +300,15 @@ void InitEPwm4Example()
     //
     EPwm4Regs.CMPA.bit.CMPA = 0;
 
+}
 
-
+void InitEPwm5Example()
+{
+    EPwm5Regs.TZCTL.bit.TZA = TZ_FORCE_LO;
+    EPwm5Regs.TZCTL.bit.TZB = TZ_FORCE_LO;
+    EPwm5Regs.TBPRD = sw_per;                       // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
+    EPwm5Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
+    EPwm5Regs.TBCTR = 0x0000;                     // Clear counter
 }
 
 //
