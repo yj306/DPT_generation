@@ -30,8 +30,8 @@ Uint16 EPwm2_DB_Direction;
 Uint16 EPwm3_DB_Direction;
 
 Uint16 DPT_count = 0;
-Uint16 DPT_maximum = 2;   // maximum pulse we may have
-Uint16 sw_per = 400;    // period = sw_per/TBCLK(200MHz) = 10 us
+Uint16 DPT_maximum = 3;   // maximum pulse we may have
+Uint16 sw_per = 1500;    // period = sw_per/TBCLK(200MHz) = 10 us
 Uint16 Tn1;        // 1st pulse comparator = Tn1/TBCLK = 4us
 Uint16 Tn2;        // 2nd pulse comparator = Tn2/TBCLK = 1us
 Uint32 INT_Count;
@@ -39,8 +39,8 @@ Uint32 INT_Count;
 // Function Prototypes
 //
 void InitEPwm1Example(void);
+void InitEPwm3Example(void);
 void InitEPwm4Example(void);
-void InitEPwm5Example(void);
 
 
 __interrupt void epwm1_isr(void);
@@ -115,8 +115,8 @@ void main(void)
     EDIS;
 
     InitEPwm1Example();
+    InitEPwm3Example();
     InitEPwm4Example();
-    InitEPwm5Example();
 
 
     EALLOW;
@@ -172,11 +172,11 @@ void main(void)
 //
 __interrupt void epwm1_isr(void)
 {
-    Tn1 = 200;        // 1st pulse comparator = Tn1/TBCLK = 1.5us (125/1000*10us = 1.25us)
-    Tn2 = 200;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us  (100/1000*10us = 1 us)
+    Tn1 = 750*1.5;        // 1st pulse comparator = Tn1/TBCLK = 1.5us (125/1000*10us = 1.25us)
+    Tn2 = 750*1.5;        // 2nd pulse comparator = Tn2/TBCLK = 1.5us  (100/1000*10us = 1 us)
     INT_Count++;
 
-    if(INT_Count > 100000)  // switching frequency = 100k Hz
+    if(INT_Count > 25000)  // switching frequency = 100k Hz
     {
 
         INT_Count = 0;
@@ -185,7 +185,7 @@ __interrupt void epwm1_isr(void)
 
 
     // set and clear SD signal
-    if(INT_Count > 5000 && INT_Count <5500)
+    if(INT_Count > 15000 && INT_Count <16000)
         GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1;   // Load output latch
     else
         GpioDataRegs.GPBSET.bit.GPIO52 = 1;
@@ -195,13 +195,10 @@ __interrupt void epwm1_isr(void)
     {
         // set EPWM1A reg for lower switch
         EPwm4Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPB = Tn1
-        EPwm4Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPB
-        EPwm4Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
-
-        EPwm1Regs.CMPB.bit.CMPB = Tn1;                  // Set CMPA = Tn1
-        EPwm1Regs.AQCTLB.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPA
-        EPwm1Regs.AQCTLB.bit.ZRO = AQ_SET;              // force high when TBCTR = 0
-
+        //EPwm4Regs.AQCTLA.bit.CBU = AQ_CLEAR;          // force low when TBCTR = CMPB: for high switch test
+        EPwm4Regs.AQCTLA.bit.CBU = AQ_CLEAR;            // force low when TBCTR = CMPB: for low  switch test
+        //EPwm4Regs.AQCTLA.bit.ZRO = AQ_SET;            // force high when TBCTR = 0:   for high switch test
+        EPwm4Regs.AQCTLA.bit.ZRO = AQ_SET;              // force high when TBCTR = 0:   for low  switch test
 
         DPT_count ++;                                   // for 2nd pulse
     }
@@ -209,16 +206,13 @@ __interrupt void epwm1_isr(void)
     {
         if (DPT_count <= DPT_maximum)
         {
-            EPwm4Regs.CMPB.bit.CMPB = Tn2;              // for the 2nd - nth pulse
-            EPwm1Regs.CMPB.bit.CMPB = Tn2;              // for the 2nd - nth pulse
+            EPwm4Regs.CMPB.bit.CMPB = Tn1;              // for the 2nd - nth pulse
 
             DPT_count ++;
         }
         else
         {
             EPwm4Regs.CMPB.bit.CMPB = 0;                // terminate all the pulses
-
-            EPwm1Regs.CMPB.bit.CMPB = 0;                // terminate all the pulses
         }
 
     }
@@ -276,8 +270,9 @@ void InitEPwm1Example()
 
 void InitEPwm4Example()
 {
-    EPwm4Regs.TZCTL.bit.TZA = TZ_FORCE_LO;
-    EPwm4Regs.TBPRD = sw_per;                       // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
+    //EPwm4Regs.TZCTL.bit.TZA = TZ_FORCE_LO;        // for lower switch test
+    EPwm4Regs.TZCTL.bit.TZB = TZ_FORCE_LO;      // for upper switch test
+    EPwm4Regs.TBPRD = sw_per;                     // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
     EPwm4Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
     EPwm4Regs.TBCTR = 0x0000;                     // Clear counter
     //
@@ -302,13 +297,12 @@ void InitEPwm4Example()
 
 }
 
-void InitEPwm5Example()
+void InitEPwm3Example()
 {
-    EPwm5Regs.TZCTL.bit.TZA = TZ_FORCE_LO;
-    EPwm5Regs.TZCTL.bit.TZB = TZ_FORCE_LO;
-    EPwm5Regs.TBPRD = sw_per;                       // Set timer period, PWM frequency = 100kHz Tsw = 10us  PWM_CLK = 100Mhz
-    EPwm5Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
-    EPwm5Regs.TBCTR = 0x0000;                     // Clear counter
+    EPwm3Regs.TZCTL.bit.TZA = TZ_FORCE_LO;        // for DPT test
+    EPwm3Regs.TZCTL.bit.TZB = TZ_FORCE_LO;        // for DPT test
+    EPwm3Regs.TBPHS.bit.TBPHS = 0x0000;           // Phase is 0
+    EPwm3Regs.TBCTR = 0x0000;                     // Clear counter
 }
 
 //
